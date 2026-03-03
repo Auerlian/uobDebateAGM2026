@@ -110,14 +110,27 @@
             view: 'login', // 'login', 'voter', 'admin'
             currentUser: null,
             candidates: [
-                { fullName: "Alice Smith", studentId: "1000001", attending: "In-person", roles: ["President", "Vice President"] },
-                { fullName: "Bob Jones", studentId: "1000002", attending: "Online", roles: ["Treasurer", "Secretary"] },
-                { fullName: "Charlie Brown", studentId: "1000003", attending: "In-person", roles: ["Social Secretary", "President"] },
-                { fullName: "Diana Prince", studentId: "1000004", attending: "In-person", roles: ["Equity Officer", "Public Debate Training Officer"] }
+                { fullName: "Alice Smith", studentId: "1000001", attending: "In-person", roles: ["President"] },
+                { fullName: "Bob Jones", studentId: "1000002", attending: "Online", roles: ["President", "Vice President"] },
+                { fullName: "Charlie Brown", studentId: "1000003", attending: "In-person", roles: ["Vice President"] },
+                { fullName: "Diana Prince", studentId: "1000004", attending: "In-person", roles: ["Secretary"] },
+                { fullName: "Emma Watson", studentId: "1000005", attending: "In-person", roles: ["Secretary", "Treasurer"] },
+                { fullName: "Frank Miller", studentId: "1000006", attending: "Online", roles: ["Treasurer"] },
+                { fullName: "Grace Lee", studentId: "1000007", attending: "In-person", roles: ["Public Debate Training Officer"] },
+                { fullName: "Henry Ford", studentId: "1000008", attending: "In-person", roles: ["Public Debate Training Officer", "British Parliamentary Training Officer"] },
+                { fullName: "Ivy Chen", studentId: "1000009", attending: "Online", roles: ["British Parliamentary Training Officer"] },
+                { fullName: "Jack Wilson", studentId: "1000010", attending: "In-person", roles: ["Tournament Secretary"] },
+                { fullName: "Kate Johnson", studentId: "1000011", attending: "In-person", roles: ["Tournament Secretary", "Social Secretary"] },
+                { fullName: "Liam Davis", studentId: "1000012", attending: "Online", roles: ["Social Secretary"] },
+                { fullName: "Maya Patel", studentId: "1000013", attending: "In-person", roles: ["Equity Officer"] },
+                { fullName: "Noah Kim", studentId: "1000014", attending: "In-person", roles: ["Equity Officer"] }
             ],
             votersDB: {
                 "1234567": { code: "UOB2024A", votedPositions: [] },
-                "7654321": { code: "UOB2024B", votedPositions: [] }
+                "7654321": { code: "UOB2024B", votedPositions: [] },
+                "2345678": { code: "UOB2024C", votedPositions: [] },
+                "3456789": { code: "UOB2024D", votedPositions: [] },
+                "4567890": { code: "UOB2024E", votedPositions: [] }
             },
             results: {},
             election: {
@@ -310,8 +323,19 @@
             demo.innerHTML = `
                 <p class="font-bold mb-2 uppercase tracking-wider text-[10px] text-slate-400">Demo Credentials</p>
                 <div class="grid grid-cols-2 gap-2">
-                    <div><strong class="text-slate-800">Voter 1:</strong><br/>ID: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">1234567</code><br/>Code: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">UOB2024A</code></div>
-                    <div><strong class="text-slate-800">Admin:</strong><br/>User: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">admin</code><br/>Pass: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">admin</code></div>
+                    <div>
+                        <strong class="text-slate-800">Voters:</strong><br/>
+                        ID: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">1234567</code> Code: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">UOB2024A</code><br/>
+                        ID: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">7654321</code> Code: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">UOB2024B</code><br/>
+                        ID: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">2345678</code> Code: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">UOB2024C</code>
+                    </div>
+                    <div>
+                        <strong class="text-slate-800">Admin:</strong><br/>
+                        User: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">admin</code><br/>
+                        Pass: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">admin</code><br/>
+                        <br/>
+                        <small class="text-slate-500">Select a position first, then click "Open Ballot"</small>
+                    </div>
                 </div>
             `;
             
@@ -538,10 +562,10 @@
             const buttonsGrid = createElement('div', 'grid grid-cols-1 md:grid-cols-3 gap-4');
             
             const openBtn = createButton('Open Ballot', 
-                `flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${status === 'idle' && activePosition ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`,
+                `flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${status === 'idle' && appState.election.activePosition ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`,
                 () => {
-                    if (activePosition && status === 'idle') {
-                        handleOpenVoting(activePosition);
+                    if (appState.election.activePosition && status === 'idle') {
+                        handleOpenVoting(appState.election.activePosition);
                     }
                 }
             );
