@@ -1,0 +1,643 @@
+import React, { useState, useMemo, useRef } from 'react';
+import { 
+  Shield, CheckCircle, User, Lock, AlertCircle, ChevronRight, 
+  BarChart3, LogOut, Play, Square, Eye, Users, Upload, Plus, Clock, Trophy
+} from 'lucide-react';
+
+// --- INITIAL MOCK DATA ---
+const initialCandidates = [
+  { fullName: "Alice Smith", studentId: "1000001", attending: "In-person", roles: ["President", "Vice President"] },
+  { fullName: "Bob Jones", studentId: "1000002", attending: "Online", roles: ["Treasurer", "Secretary"] },
+  { fullName: "Charlie Brown", studentId: "1000003", attending: "In-person", roles: ["Social Secretary", "President"] },
+  { fullName: "Diana Prince", studentId: "1000004", attending: "In-person", roles: ["Equity Officer", "Public Debate Training Officer"] }
+];
+
+const initialVoters = {
+  "1234567": { code: "UOB2024A", votedPositions: [] },
+  "7654321": { code: "UOB2024B", votedPositions: [] }
+};
+
+const POSITIONS = [
+  "President", "Vice President", "Secretary", "Treasurer", 
+  "Public Debate Training Officer", "British Parliamentary Training Officer", 
+  "Tournament Secretary", "Social Secretary", "Equity Officer"
+];
+
+export default function App() {
+  // Global App State (Simulating a backend database/websocket server)
+  const [view, setView] = useState('login'); // 'login', 'voter', 'admin'
+  const [currentUser, setCurrentUser] = useState(null); // { id, role }
+  
+  // Election Data State
+  const [candidates, setCandidates] = useState(initialCandidates);
+  const [votersDB, setVotersDB] = useState(initialVoters);
+  const [results, setResults] = useState({}); // { position: { candidateName: voteCount } }
+  
+  // Live Election Controller State
+  const [election, setElection] = useState({
+    activePosition: null, // The role currently being voted on (e.g., "President")
+    status: 'idle',       // 'idle' (waiting to start) | 'open' (voting active) | 'closed' (tallying)
+    revealedPositions: [] // Array of positions whose results are public
+  });
+
+  // Derived state: match candidates to positions
+  const candidatesByPosition = useMemo(() => {
+    const mapping = {};
+    POSITIONS.forEach(pos => {
+      mapping[pos] = candidates.filter(c => c.roles.includes(pos));
+    });
+    return mapping;
+  }, [candidates]);
+
+  // Handlers
+  const handleLogin = (studentId, code, isAdminLogin) => {
+    if (isAdminLogin) {
+      if (studentId === "admin" && code === "admin") {
+        setCurrentUser({ id: 'admin', role: 'admin' });
+        setView('admin');
+        return { success: true };
+      }
+      return { success: false, message: "Invalid Admin Credentials" };
+    }
+
+    const voter = votersDB[studentId];
+    if (!voter) return { success: false, message: "Student ID not found." };
+    if (voter.code !== code) return { success: false, message: "Invalid voting code." };
+
+    setCurrentUser({ id: studentId, role: 'voter' });
+    setView('voter');
+    return { success: true };
+  };
+
+  const handleCastVote = (position, candidateName) => {
+    // 1. Record anonymous vote
+    setResults(prev => {
+      const posResults = prev[position] || { "Re-Open Nominations (RON)": 0, "Abstain": 0 };
+      const currentCount = posResults[candidateName] || 0;
+      return {
+        ...prev,
+        [position]: { ...posResults, [candidateName]: currentCount + 1 }
+      };
+    });
+
+    // 2. Mark this voter as having voted for THIS position only
+    setVotersDB(prev => ({
+      ...prev,
+      [currentUser.id]: { 
+        ...prev[currentUser.id], 
+        votedPositions: [...prev[currentUser.id].votedPositions, position] 
+      }
+    }));
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setView('login');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-blue-200 flex flex-col">
+      {/* Universal Header */}
+      <header className="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center z-10">
+        <div className="flex items-center gap-3 max-w-5xl mx-auto w-full">
+          <Shield className="w-8 h-8 text-blue-400" />
+          <div className="flex-1">
+            <h1 className="text-xl font-bold tracking-tight">UoB Debate Society</h1>
+            <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Live Election System</p>
+          </div>
+          {currentUser && (
+            <div className="flex items-center gap-4">
+              <span className="hidden sm:inline-block text-sm text-slate-300">
+                Logged in as: <span className="font-mono font-bold text-white">{currentUser.id}</span>
+              </span>
+              <button onClick={handleLogout} className="text-slate-300 hover:text-white flex items-center gap-1 text-sm bg-slate-800 px-3 py-1.5 rounded-lg transition-colors">
+                <LogOut className="w-4 h-4" /> <span className="hidden sm:inline-block">Logout</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 flex flex-col">
+        {view === 'login' && <LoginView onLogin={handleLogin} />}
+        
+        {view === 'voter' && currentUser?.role === 'voter' && (
+          <VoterDashboard 
+            voterData={votersDB[currentUser.id]} 
+            election={election} 
+            candidatesMapping={candidatesByPosition}
+            results={results}
+            onCastVote={handleCastVote}
+          />
+        )}
+        
+        {view === 'admin' && currentUser?.role === 'admin' && (
+          <AdminDashboard 
+            election={election}
+            setElection={setElection}
+            candidates={candidates}
+            setCandidates={setCandidates}
+            votersDB={votersDB}
+            results={results}
+            positions={POSITIONS}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+// ==========================================
+// VIEWS
+// ==========================================
+
+function LoginView({ onLogin }) {
+  const [studentId, setStudentId] = useState('');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [isAdminTab, setIsAdminTab] = useState(false);
+
+  const submit = (e) => {
+    e.preventDefault();
+    setError('');
+    const result = onLogin(studentId, code, isAdminTab);
+    if (!result.success) setError(result.message);
+  };
+
+  return (
+    <div className="max-w-md mx-auto w-full mt-10 animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200 bg-slate-50">
+          <button 
+            className={`flex-1 py-4 text-sm font-bold transition-colors ${!isAdminTab ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 hover:bg-slate-100'}`}
+            onClick={() => { setIsAdminTab(false); setError(''); }}
+          >
+            Voter Login
+          </button>
+          <button 
+            className={`flex-1 py-4 text-sm font-bold transition-colors ${isAdminTab ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 hover:bg-slate-100'}`}
+            onClick={() => { setIsAdminTab(true); setError(''); }}
+          >
+            Admin Login
+          </button>
+        </div>
+
+        <div className="p-8">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">
+              {isAdminTab ? 'Returning Officer Portal' : 'Committee Elections'}
+            </h2>
+            <p className="text-slate-500 text-sm mt-1">
+              {isAdminTab ? 'Manage the live election flow' : 'Sign in to access the live voting session'}
+            </p>
+          </div>
+          
+          <form onSubmit={submit} className="space-y-5">
+            {error && (
+              <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm flex items-start gap-2 border border-red-100">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p>{error}</p>
+              </div>
+            )}
+            
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <User className="w-4 h-4" /> {isAdminTab ? 'Admin Username' : 'Student ID'}
+              </label>
+              <input 
+                type="text" required value={studentId} onChange={e => setStudentId(e.target.value)}
+                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder={isAdminTab ? "admin" : "e.g. 1234567"}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Lock className="w-4 h-4" /> {isAdminTab ? 'Admin Password' : 'Unique Voting Code'}
+              </label>
+              <input 
+                type={isAdminTab ? "password" : "text"} required value={code} onChange={e => setCode(e.target.value)}
+                className={`w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${!isAdminTab && 'font-mono uppercase'}`}
+                placeholder={isAdminTab ? "••••••••" : "Enter 8-character code"}
+              />
+            </div>
+
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 mt-4">
+              {isAdminTab ? 'Access Dashboard' : 'Join Live Session'} <ChevronRight className="w-5 h-5" />
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Demo Credentials Helper */}
+      <div className="mt-6 bg-slate-200/50 p-4 rounded-xl text-xs text-slate-600 border border-slate-200">
+        <p className="font-bold mb-2 uppercase tracking-wider text-[10px] text-slate-400">Canvas Prototype Credentials</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div><strong className="text-slate-800">Voter 1:</strong> <br/>ID: <code className="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">1234567</code><br/>Code: <code className="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">UOB2024A</code></div>
+          <div><strong className="text-slate-800">Admin:</strong> <br/>User: <code className="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">admin</code><br/>Pass: <code className="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">admin</code></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// VOTER DASHBOARD (Live Sync)
+// ==========================================
+
+function VoterDashboard({ voterData, election, candidatesMapping, results, onCastVote }) {
+  const { activePosition, status, revealedPositions } = election;
+  const hasVotedForActive = activePosition ? voterData.votedPositions.includes(activePosition) : false;
+
+  const [selection, setSelection] = useState('');
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  // Reset selection if the active position changes
+  useMemo(() => {
+    setSelection('');
+    setIsConfirming(false);
+  }, [activePosition]);
+
+  const handleSubmit = () => {
+    if (selection) {
+      onCastVote(activePosition, selection);
+      setIsConfirming(false);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 h-full animate-in fade-in duration-500">
+      
+      {/* Left Column: Live Action Area */}
+      <div className="lg:col-span-2 flex flex-col gap-6">
+        
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col">
+          <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100">
+            <span className="relative flex h-3 w-3">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${status === 'open' ? 'bg-green-400' : 'bg-amber-400'}`}></span>
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${status === 'open' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+            </span>
+            <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Live Ballot Status</h2>
+          </div>
+
+          {/* STATE 1: No active election / Waiting */}
+          {(status === 'idle' || !activePosition) && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+              <Clock className="w-16 h-16 text-slate-300 mb-4 animate-pulse" />
+              <h3 className="text-2xl font-bold text-slate-800 mb-2">Waiting for next ballot...</h3>
+              <p className="text-slate-500 max-w-md">The Returning Officer has not opened the next round of voting yet. Please keep this screen open.</p>
+            </div>
+          )}
+
+          {/* STATE 2: Election Open, Voter Hasn't Voted */}
+          {status === 'open' && activePosition && !hasVotedForActive && (
+            <div className="flex-1 animate-in slide-in-from-bottom-4 duration-300">
+              <h3 className="text-3xl font-bold text-slate-900 mb-2">{activePosition}</h3>
+              <p className="text-slate-500 mb-6 pb-6 border-b border-slate-100">Select one candidate. Your vote is anonymous and final once submitted.</p>
+              
+              {!isConfirming ? (
+                <div className="space-y-3">
+                  {candidatesMapping[activePosition]?.map(candidate => (
+                    <label key={candidate.fullName} className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${selection === candidate.fullName ? 'border-blue-500 bg-blue-50 shadow-md shadow-blue-500/10' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}>
+                      <input type="radio" name="ballot" value={candidate.fullName} checked={selection === candidate.fullName} onChange={() => setSelection(candidate.fullName)} className="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500" />
+                      <div className="ml-4 flex flex-col">
+                        <span className="font-bold text-slate-800 text-lg">{candidate.fullName}</span>
+                        <span className="text-sm text-slate-500">Attending: {candidate.attending}</span>
+                      </div>
+                    </label>
+                  ))}
+                  <div className="grid grid-cols-2 gap-3 mt-6">
+                    {['Re-Open Nominations (RON)', 'Abstain'].map(opt => (
+                      <label key={opt} className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${selection === opt ? 'border-slate-800 bg-slate-100 shadow-md' : 'border-slate-200 hover:bg-slate-50'}`}>
+                        <input type="radio" name="ballot" value={opt} checked={selection === opt} onChange={() => setSelection(opt)} className="w-5 h-5 text-slate-600 focus:ring-slate-500" />
+                        <span className="ml-3 font-semibold text-slate-700">{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <button onClick={() => setIsConfirming(true)} disabled={!selection} className={`w-full mt-8 py-4 rounded-xl font-bold text-lg transition-all ${selection ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                    Review Vote
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center animate-in zoom-in-95 duration-200">
+                  <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest mb-2">Confirm Your Choice for</p>
+                  <p className="text-xl font-bold text-slate-800 mb-6">{activePosition}</p>
+                  <div className="inline-block bg-white border-2 border-blue-200 px-8 py-4 rounded-xl shadow-sm mb-8">
+                    <span className="text-2xl font-bold text-blue-700">{selection}</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <button onClick={() => setIsConfirming(false)} className="flex-1 py-3 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl font-bold text-slate-700 transition-colors">Go Back</button>
+                    <button onClick={handleSubmit} className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-600/30 transition-all flex items-center justify-center gap-2">
+                      <CheckCircle className="w-5 h-5"/> Cast Vote
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STATE 3: Election Open, Voter Has Voted */}
+          {status === 'open' && activePosition && hasVotedForActive && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-12 animate-in zoom-in-95">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Vote Recorded</h3>
+              <p className="text-slate-500 max-w-md">Your vote for <strong>{activePosition}</strong> has been securely cast. Please wait for the admin to close the ballot.</p>
+            </div>
+          )}
+
+          {/* STATE 4: Election Closed (Tallying) */}
+          {status === 'closed' && activePosition && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+              <Lock className="w-16 h-16 text-slate-400 mb-4" />
+              <h3 className="text-2xl font-bold text-slate-800 mb-2">Voting Closed</h3>
+              <p className="text-slate-500 max-w-md">Voting for <strong>{activePosition}</strong> has concluded. Awaiting the Returning Officer to reveal the results.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right Column: Announced Results Feed */}
+      <div className="bg-slate-900 text-white rounded-2xl shadow-xl flex flex-col overflow-hidden">
+        <div className="p-6 border-b border-slate-800 bg-slate-800/50 flex items-center gap-3">
+          <Trophy className="w-6 h-6 text-yellow-400" />
+          <h2 className="text-xl font-bold">Announced Results</h2>
+        </div>
+        
+        <div className="p-6 flex-1 overflow-y-auto bg-slate-900">
+          {revealedPositions.length === 0 ? (
+            <div className="text-center text-slate-500 py-10 italic">No results have been announced yet.</div>
+          ) : (
+            <div className="space-y-6">
+              {[...revealedPositions].reverse().map(pos => { // Show newest first
+                const posResults = results[pos] || {};
+                // Find winner (rudimentary calculation for prototype)
+                const sorted = Object.entries(posResults).sort((a, b) => b[1] - a[1]);
+                const winner = sorted.length > 0 ? sorted[0][0] : "No votes";
+                
+                return (
+                  <div key={pos} className="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-inner animate-in slide-in-from-right-4">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{pos}</h4>
+                    <p className="text-lg font-bold text-white flex items-center justify-between">
+                      {winner}
+                      {winner !== "No votes" && winner !== "Re-Open Nominations (RON)" && <CheckCircle className="w-5 h-5 text-green-400"/>}
+                    </p>
+                    {/* Expandable details could go here, for now just show winner */}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// ADMIN DASHBOARD
+// ==========================================
+
+function AdminDashboard({ election, setElection, candidates, setCandidates, votersDB, results, positions }) {
+  const [tab, setTab] = useState('control'); // 'control', 'candidates'
+
+  // Calculations for Admin Stats
+  const totalEligible = Object.keys(votersDB).length;
+  const currentVotesCount = election.activePosition ? 
+    Object.values(votersDB).filter(v => v.votedPositions.includes(election.activePosition)).length : 0;
+
+  const handleOpenVoting = (pos) => setElection({ ...election, activePosition: pos, status: 'open' });
+  const handleCloseVoting = () => setElection({ ...election, status: 'closed' });
+  const handleRevealResults = () => {
+    if (!election.revealedPositions.includes(election.activePosition)) {
+      setElection({
+        ...election,
+        status: 'idle', // Reset for next vote
+        revealedPositions: [...election.revealedPositions, election.activePosition]
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col flex-1 h-full gap-6 animate-in fade-in duration-300">
+      
+      {/* Admin Header & Tabs */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <Shield className="w-6 h-6 text-indigo-600" /> Returning Officer Panel
+        </h2>
+        <div className="flex bg-slate-100 p-1 rounded-lg">
+          <button onClick={() => setTab('control')} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${tab === 'control' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Live Control</button>
+          <button onClick={() => setTab('candidates')} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${tab === 'candidates' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Manage Candidates</button>
+        </div>
+      </div>
+
+      {tab === 'control' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Controls */}
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+            <h3 className="text-lg font-bold text-slate-800 mb-6 border-b border-slate-100 pb-4">Election Controller</h3>
+            
+            <div className="space-y-8">
+              {/* Step 1: Select Position */}
+              <div className={`transition-opacity ${election.status !== 'idle' ? 'opacity-50 pointer-events-none' : ''}`}>
+                <label className="block text-sm font-bold text-slate-700 mb-2">1. Select Position to Elect</label>
+                <select 
+                  className="w-full p-4 border border-slate-300 rounded-xl font-bold text-slate-800 bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  value={election.activePosition || ''}
+                  onChange={(e) => setElection({ ...election, activePosition: e.target.value })}
+                >
+                  <option value="" disabled>-- Select a role --</option>
+                  {positions.map(pos => {
+                    const isRevealed = election.revealedPositions.includes(pos);
+                    return <option key={pos} value={pos} disabled={isRevealed}>{pos} {isRevealed ? '(Completed)' : ''}</option>
+                  })}
+                </select>
+              </div>
+
+              {/* Step 2/3/4: Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button 
+                  onClick={() => handleOpenVoting(election.activePosition)}
+                  disabled={!election.activePosition || election.status !== 'idle'}
+                  className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${election.status === 'idle' && election.activePosition ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`}
+                >
+                  <Play className="w-8 h-8 mb-2" />
+                  <span className="font-bold">Open Ballot</span>
+                </button>
+
+                <button 
+                  onClick={handleCloseVoting}
+                  disabled={election.status !== 'open'}
+                  className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${election.status === 'open' ? 'border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer shadow-sm animate-pulse' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`}
+                >
+                  <Square className="w-8 h-8 mb-2" />
+                  <span className="font-bold">Close Ballot</span>
+                </button>
+
+                <button 
+                  onClick={handleRevealResults}
+                  disabled={election.status !== 'closed'}
+                  className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${election.status === 'closed' ? 'border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`}
+                >
+                  <Eye className="w-8 h-8 mb-2" />
+                  <span className="font-bold">Reveal & Reset</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Side Panel: Live Stats */}
+          <div className="bg-slate-900 rounded-2xl shadow-sm text-white p-6 flex flex-col">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-indigo-300">
+              <BarChart3 className="w-5 h-5" /> Live Monitor
+            </h3>
+            
+            <div className="bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700">
+              <p className="text-sm text-slate-400 mb-1">Current Ballot</p>
+              <p className="text-xl font-bold text-white">{election.activePosition || 'None Active'}</p>
+              <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-900 border border-slate-600">
+                <div className={`w-2 h-2 rounded-full ${election.status === 'open' ? 'bg-green-500' : election.status === 'closed' ? 'bg-amber-500' : 'bg-slate-500'}`}></div>
+                {election.status}
+              </div>
+            </div>
+
+            {election.status === 'open' && (
+              <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 mb-4 animate-in fade-in">
+                <p className="text-sm text-slate-400 mb-2">Turnout (This Ballot)</p>
+                <div className="flex items-end gap-2 mb-2">
+                  <span className="text-4xl font-bold text-white">{currentVotesCount}</span>
+                  <span className="text-slate-400 mb-1">/ {totalEligible} voters</span>
+                </div>
+                {/* Progress bar */}
+                <div className="w-full bg-slate-900 rounded-full h-2.5">
+                  <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${(currentVotesCount / totalEligible) * 100}%` }}></div>
+                </div>
+              </div>
+            )}
+
+            {election.status === 'closed' && election.activePosition && (
+              <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 animate-in fade-in flex-1">
+                 <p className="text-sm text-slate-400 mb-4 border-b border-slate-700 pb-2">Preliminary Results (Hidden from Voters)</p>
+                 <ul className="space-y-3">
+                   {Object.entries(results[election.activePosition] || {})
+                     .sort((a,b) => b[1] - a[1])
+                     .map(([name, count]) => (
+                     <li key={name} className="flex justify-between items-center bg-slate-900 p-2 rounded-lg">
+                       <span className="text-sm truncate pr-2" title={name}>{name}</span>
+                       <span className="font-mono font-bold text-indigo-300">{count}</span>
+                     </li>
+                   ))}
+                 </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'candidates' && (
+        <AdminCandidateManager candidates={candidates} setCandidates={setCandidates} positions={positions} />
+      )}
+    </div>
+  );
+}
+
+// Sub-component for Admin Candidate Management
+function AdminCandidateManager({ candidates, setCandidates, positions }) {
+  const fileInputRef = useRef(null);
+  
+  // Basic CSV Parser
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target.result;
+        const rows = text.split('\n').filter(r => r.trim());
+        // Skip header row
+        const parsedCandidates = rows.slice(1).map(row => {
+          // Assume format: fullName, studentId, attending, roles(separated by ;)
+          const cols = row.split(',').map(c => c.trim());
+          if (cols.length < 4) return null;
+          return {
+            fullName: cols[0],
+            studentId: cols[1],
+            attending: cols[2],
+            roles: cols[3].split(';').map(r => r.trim()).filter(r => positions.includes(r)) // Filter to valid roles
+          };
+        }).filter(c => c !== null);
+
+        setCandidates(prev => [...prev, ...parsedCandidates]);
+        alert(`Successfully imported ${parsedCandidates.length} candidates.`);
+      } catch (err) {
+        alert("Error parsing CSV. Please ensure format is: Full Name, Student ID, Attending, Roles (separated by ;)");
+      }
+      if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+        <div>
+          <h3 className="text-lg font-bold text-slate-800">Candidate Roster</h3>
+          <p className="text-sm text-slate-500">Total: {candidates.length} registered candidates</p>
+        </div>
+        
+        <div>
+          <input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="csv-upload" />
+          <label htmlFor="csv-upload" className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg cursor-pointer flex items-center gap-2 transition-colors border border-slate-300">
+            <Upload className="w-4 h-4" /> Upload CSV
+          </label>
+        </div>
+      </div>
+
+      {/* Roster Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 text-slate-500 text-sm uppercase tracking-wider border-y border-slate-200">
+              <th className="p-4 font-semibold">Name</th>
+              <th className="p-4 font-semibold">ID</th>
+              <th className="p-4 font-semibold">Attending</th>
+              <th className="p-4 font-semibold">Running For</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm">
+            {candidates.map((c, i) => (
+              <tr key={i} className="hover:bg-slate-50">
+                <td className="p-4 font-bold text-slate-800">{c.fullName}</td>
+                <td className="p-4 font-mono text-slate-500">{c.studentId}</td>
+                <td className="p-4 text-slate-600">
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${c.attending.toLowerCase().includes('in-person') ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                    {c.attending}
+                  </span>
+                </td>
+                <td className="p-4 text-slate-600">
+                  <div className="flex flex-wrap gap-1">
+                    {c.roles.map(r => (
+                      <span key={r} className="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded text-xs">{r}</span>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-6 bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-blue-800">
+        <p><strong>CSV Upload Format instructions:</strong></p>
+        <p className="font-mono text-xs mt-1 bg-white p-2 rounded border border-blue-100">Full Name, Student ID, Attending, Role1;Role2;Role3</p>
+        <p className="text-xs mt-1 text-blue-600">Ensure roles match the exact names of the 9 positions, separated by semicolons within the final column.</p>
+      </div>
+    </div>
+  );
+}
