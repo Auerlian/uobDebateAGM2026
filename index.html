@@ -4,36 +4,127 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UoB Debate Society - Live Election System</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; 
+        }
+        .icon {
+            width: 1em;
+            height: 1em;
+            display: inline-block;
+            vertical-align: middle;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+        }
+        .animate-ping {
+            animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useMemo, useRef } = React;
-        const { 
-            Shield, CheckCircle, User, Lock, AlertCircle, ChevronRight, 
-            BarChart3, LogOut, Play, Square, Eye, Users, Upload, Plus, Clock, Trophy
-        } = lucideReact;
+    <script>
+        // Simple icon components using SVG
+        function createIcon(paths, className = '') {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', className + ' icon');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('stroke-width', '2');
+            
+            paths.forEach(pathData => {
+                const path = document.createElementNS('http://www.w3.org/2000/svg', pathData.type || 'path');
+                Object.keys(pathData).forEach(attr => {
+                    if (attr !== 'type') {
+                        path.setAttribute(attr, pathData[attr]);
+                    }
+                });
+                svg.appendChild(path);
+            });
+            
+            return svg;
+        }
 
-        // --- INITIAL MOCK DATA ---
-        const initialCandidates = [
-            { fullName: "Alice Smith", studentId: "1000001", attending: "In-person", roles: ["President", "Vice President"] },
-            { fullName: "Bob Jones", studentId: "1000002", attending: "Online", roles: ["Treasurer", "Secretary"] },
-            { fullName: "Charlie Brown", studentId: "1000003", attending: "In-person", roles: ["Social Secretary", "President"] },
-            { fullName: "Diana Prince", studentId: "1000004", attending: "In-person", roles: ["Equity Officer", "Public Debate Training Officer"] }
-        ];
+        const icons = {
+            shield: [{ d: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' }],
+            checkCircle: [
+                { d: 'M22 11.08V12a10 10 0 1 1-5.93-9.14' },
+                { type: 'polyline', points: '22,4 12,14.01 9,11.01' }
+            ],
+            user: [
+                { d: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' },
+                { type: 'circle', cx: '12', cy: '7', r: '4' }
+            ],
+            lock: [
+                { type: 'rect', x: '3', y: '11', width: '18', height: '11', rx: '2', ry: '2' },
+                { type: 'circle', cx: '12', cy: '16', r: '1' },
+                { d: 'M7 11V7a5 5 0 0 1 10 0v4' }
+            ],
+            alertCircle: [
+                { type: 'circle', cx: '12', cy: '12', r: '10' },
+                { type: 'line', x1: '12', y1: '8', x2: '12', y2: '12' },
+                { type: 'line', x1: '12', y1: '16', x2: '12.01', y2: '16' }
+            ],
+            chevronRight: [{ type: 'polyline', points: '9,18 15,12 9,6' }],
+            logOut: [
+                { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' },
+                { type: 'polyline', points: '16,17 21,12 16,7' },
+                { type: 'line', x1: '21', y1: '12', x2: '9', y2: '12' }
+            ],
+            clock: [
+                { type: 'circle', cx: '12', cy: '12', r: '10' },
+                { type: 'polyline', points: '12,6 12,12 16,14' }
+            ],
+            play: [{ type: 'polygon', points: '5,3 19,12 5,21' }],
+            square: [{ type: 'rect', x: '3', y: '3', width: '18', height: '18', rx: '2', ry: '2' }],
+            eye: [
+                { d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' },
+                { type: 'circle', cx: '12', cy: '12', r: '3' }
+            ],
+            trophy: [
+                { type: 'line', x1: '8', y1: '21', x2: '16', y2: '21' },
+                { type: 'line', x1: '12', y1: '17', x2: '12', y2: '21' },
+                { d: 'M7 4V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2' },
+                { d: 'M7 4h10l2 6H5l2-6z' }
+            ],
+            barChart: [
+                { type: 'line', x1: '12', y1: '20', x2: '12', y2: '10' },
+                { type: 'line', x1: '18', y1: '20', x2: '18', y2: '4' },
+                { type: 'line', x1: '6', y1: '20', x2: '6', y2: '16' }
+            ]
+        };
 
-        const initialVoters = {
-            "1234567": { code: "UOB2024A", votedPositions: [] },
-            "7654321": { code: "UOB2024B", votedPositions: [] }
+        // Application State
+        let appState = {
+            view: 'login', // 'login', 'voter', 'admin'
+            currentUser: null,
+            candidates: [
+                { fullName: "Alice Smith", studentId: "1000001", attending: "In-person", roles: ["President", "Vice President"] },
+                { fullName: "Bob Jones", studentId: "1000002", attending: "Online", roles: ["Treasurer", "Secretary"] },
+                { fullName: "Charlie Brown", studentId: "1000003", attending: "In-person", roles: ["Social Secretary", "President"] },
+                { fullName: "Diana Prince", studentId: "1000004", attending: "In-person", roles: ["Equity Officer", "Public Debate Training Officer"] }
+            ],
+            votersDB: {
+                "1234567": { code: "UOB2024A", votedPositions: [] },
+                "7654321": { code: "UOB2024B", votedPositions: [] }
+            },
+            results: {},
+            election: {
+                activePosition: null,
+                status: 'idle', // 'idle', 'open', 'closed'
+                revealedPositions: []
+            }
         };
 
         const POSITIONS = [
@@ -42,540 +133,569 @@
             "Tournament Secretary", "Social Secretary", "Equity Officer"
         ];
 
-        function App() {
-            // Global App State (Simulating a backend database/websocket server)
-            const [view, setView] = useState('login'); // 'login', 'voter', 'admin'
-            const [currentUser, setCurrentUser] = useState(null); // { id, role }
+        // Helper functions
+        function createElement(tag, className = '', content = '') {
+            const el = document.createElement(tag);
+            if (className) el.className = className;
+            if (content) el.textContent = content;
+            return el;
+        }
+
+        function createButton(text, className, onClick) {
+            const btn = createElement('button', className, text);
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        function createInput(type, placeholder, className, value = '') {
+            const input = document.createElement('input');
+            input.type = type;
+            input.placeholder = placeholder;
+            input.className = className;
+            input.value = value;
+            return input;
+        }
+
+        // Login handlers
+        function handleLogin(studentId, code, isAdmin) {
+            if (isAdmin) {
+                if (studentId === "admin" && code === "admin") {
+                    appState.currentUser = { id: 'admin', role: 'admin' };
+                    appState.view = 'admin';
+                    render();
+                    return { success: true };
+                }
+                return { success: false, message: "Invalid Admin Credentials" };
+            }
+
+            const voter = appState.votersDB[studentId];
+            if (!voter) return { success: false, message: "Student ID not found." };
+            if (voter.code !== code) return { success: false, message: "Invalid voting code." };
+
+            appState.currentUser = { id: studentId, role: 'voter' };
+            appState.view = 'voter';
+            render();
+            return { success: true };
+        }
+
+        function handleCastVote(position, candidateName) {
+            // Record vote
+            if (!appState.results[position]) {
+                appState.results[position] = { "Re-Open Nominations (RON)": 0, "Abstain": 0 };
+            }
+            appState.results[position][candidateName] = (appState.results[position][candidateName] || 0) + 1;
+
+            // Mark voter as voted
+            appState.votersDB[appState.currentUser.id].votedPositions.push(position);
+            render();
+        }
+
+        function handleLogout() {
+            appState.currentUser = null;
+            appState.view = 'login';
+            render();
+        }
+
+        // Admin handlers
+        function handleOpenVoting(position) {
+            appState.election.activePosition = position;
+            appState.election.status = 'open';
+            render();
+        }
+
+        function handleCloseVoting() {
+            appState.election.status = 'closed';
+            render();
+        }
+
+        function handleRevealResults() {
+            if (!appState.election.revealedPositions.includes(appState.election.activePosition)) {
+                appState.election.revealedPositions.push(appState.election.activePosition);
+            }
+            appState.election.status = 'idle';
+            render();
+        }
+
+        // Render functions
+        function renderLoginView() {
+            const container = createElement('div', 'max-w-md mx-auto w-full mt-10');
             
-            // Election Data State
-            const [candidates, setCandidates] = useState(initialCandidates);
-            const [votersDB, setVotersDB] = useState(initialVoters);
-            const [results, setResults] = useState({}); // { position: { candidateName: voteCount } }
+            const card = createElement('div', 'bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden');
             
-            // Live Election Controller State
-            const [election, setElection] = useState({
-                activePosition: null, // The role currently being voted on (e.g., "President")
-                status: 'idle',       // 'idle' (waiting to start) | 'open' (voting active) | 'closed' (tallying)
-                revealedPositions: [] // Array of positions whose results are public
+            // Tabs
+            const tabs = createElement('div', 'flex border-b border-slate-200 bg-slate-50');
+            let isAdminTab = false;
+            
+            const voterTab = createButton('Voter Login', 'flex-1 py-4 text-sm font-bold transition-colors text-blue-600 border-b-2 border-blue-600 bg-white', () => {
+                isAdminTab = false;
+                updateTabs();
             });
-
-            // Derived state: match candidates to positions
-            const candidatesByPosition = useMemo(() => {
-                const mapping = {};
-                POSITIONS.forEach(pos => {
-                    mapping[pos] = candidates.filter(c => c.roles.includes(pos));
-                });
-                return mapping;
-            }, [candidates]);
-
-            // Handlers
-            const handleLogin = (studentId, code, isAdminLogin) => {
-                if (isAdminLogin) {
-                    if (studentId === "admin" && code === "admin") {
-                        setCurrentUser({ id: 'admin', role: 'admin' });
-                        setView('admin');
-                        return { success: true };
-                    }
-                    return { success: false, message: "Invalid Admin Credentials" };
-                }
-
-                const voter = votersDB[studentId];
-                if (!voter) return { success: false, message: "Student ID not found." };
-                if (voter.code !== code) return { success: false, message: "Invalid voting code." };
-
-                setCurrentUser({ id: studentId, role: 'voter' });
-                setView('voter');
-                return { success: true };
-            };
-
-            const handleCastVote = (position, candidateName) => {
-                // 1. Record anonymous vote
-                setResults(prev => {
-                    const posResults = prev[position] || { "Re-Open Nominations (RON)": 0, "Abstain": 0 };
-                    const currentCount = posResults[candidateName] || 0;
-                    return {
-                        ...prev,
-                        [position]: { ...posResults, [candidateName]: currentCount + 1 }
-                    };
-                });
-
-                // 2. Mark this voter as having voted for THIS position only
-                setVotersDB(prev => ({
-                    ...prev,
-                    [currentUser.id]: { 
-                        ...prev[currentUser.id], 
-                        votedPositions: [...prev[currentUser.id].votedPositions, position] 
-                    }
-                }));
-            };
-
-            const handleLogout = () => {
-                setCurrentUser(null);
-                setView('login');
-            };
-
-            return React.createElement('div', { className: "min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-blue-200 flex flex-col" },
-                // Universal Header
-                React.createElement('header', { className: "bg-slate-900 text-white p-4 shadow-md flex justify-between items-center z-10" },
-                    React.createElement('div', { className: "flex items-center gap-3 max-w-5xl mx-auto w-full" },
-                        React.createElement(Shield, { className: "w-8 h-8 text-blue-400" }),
-                        React.createElement('div', { className: "flex-1" },
-                            React.createElement('h1', { className: "text-xl font-bold tracking-tight" }, "UoB Debate Society"),
-                            React.createElement('p', { className: "text-xs text-slate-400 uppercase tracking-wider font-semibold" }, "Live Election System")
-                        ),
-                        currentUser && React.createElement('div', { className: "flex items-center gap-4" },
-                            React.createElement('span', { className: "hidden sm:inline-block text-sm text-slate-300" },
-                                "Logged in as: ",
-                                React.createElement('span', { className: "font-mono font-bold text-white" }, currentUser.id)
-                            ),
-                            React.createElement('button', { 
-                                onClick: handleLogout, 
-                                className: "text-slate-300 hover:text-white flex items-center gap-1 text-sm bg-slate-800 px-3 py-1.5 rounded-lg transition-colors" 
-                            },
-                                React.createElement(LogOut, { className: "w-4 h-4" }),
-                                React.createElement('span', { className: "hidden sm:inline-block" }, "Logout")
-                            )
-                        )
-                    )
-                ),
-
-                // Main Content Area
-                React.createElement('main', { className: "flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 flex flex-col" },
-                    view === 'login' && React.createElement(LoginView, { onLogin: handleLogin }),
-                    
-                    view === 'voter' && currentUser?.role === 'voter' && React.createElement(VoterDashboard, { 
-                        voterData: votersDB[currentUser.id], 
-                        election: election, 
-                        candidatesMapping: candidatesByPosition,
-                        results: results,
-                        onCastVote: handleCastVote
-                    }),
-                    
-                    view === 'admin' && currentUser?.role === 'admin' && React.createElement(AdminDashboard, { 
-                        election: election,
-                        setElection: setElection,
-                        candidates: candidates,
-                        setCandidates: setCandidates,
-                        votersDB: votersDB,
-                        results: results,
-                        positions: POSITIONS
-                    })
-                )
-            );
-        }
-
-        // ==========================================
-        // VIEWS
-        // ==========================================
-
-        function LoginView({ onLogin }) {
-            const [studentId, setStudentId] = useState('');
-            const [code, setCode] = useState('');
-            const [error, setError] = useState('');
-            const [isAdminTab, setIsAdminTab] = useState(false);
-
-            const submit = (e) => {
+            
+            const adminTab = createButton('Admin Login', 'flex-1 py-4 text-sm font-bold transition-colors text-slate-500 hover:bg-slate-100', () => {
+                isAdminTab = true;
+                updateTabs();
+            });
+            
+            function updateTabs() {
+                voterTab.className = `flex-1 py-4 text-sm font-bold transition-colors ${!isAdminTab ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 hover:bg-slate-100'}`;
+                adminTab.className = `flex-1 py-4 text-sm font-bold transition-colors ${isAdminTab ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 hover:bg-slate-100'}`;
+                titleEl.textContent = isAdminTab ? 'Returning Officer Portal' : 'Committee Elections';
+                subtitleEl.textContent = isAdminTab ? 'Manage the live election flow' : 'Sign in to access the live voting session';
+                studentIdInput.placeholder = isAdminTab ? "admin" : "e.g. 1234567";
+                codeInput.type = isAdminTab ? "password" : "text";
+                codeInput.placeholder = isAdminTab ? "••••••••" : "Enter 8-character code";
+                submitBtn.textContent = isAdminTab ? 'Access Dashboard' : 'Join Live Session';
+                errorEl.textContent = '';
+            }
+            
+            tabs.appendChild(voterTab);
+            tabs.appendChild(adminTab);
+            
+            // Form content
+            const formContainer = createElement('div', 'p-8');
+            
+            const header = createElement('div', 'text-center mb-6');
+            const titleEl = createElement('h2', 'text-2xl font-bold text-slate-800', 'Committee Elections');
+            const subtitleEl = createElement('p', 'text-slate-500 text-sm mt-1', 'Sign in to access the live voting session');
+            header.appendChild(titleEl);
+            header.appendChild(subtitleEl);
+            
+            const form = createElement('form', 'space-y-5');
+            
+            const errorEl = createElement('div', 'hidden bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-100');
+            
+            // Student ID field
+            const idField = createElement('div', 'space-y-1');
+            const idLabel = createElement('label', 'text-sm font-semibold text-slate-700 flex items-center gap-2');
+            idLabel.appendChild(createIcon(icons.user, 'w-4 h-4'));
+            idLabel.appendChild(document.createTextNode('Student ID'));
+            const studentIdInput = createInput('text', 'e.g. 1234567', 'w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all');
+            studentIdInput.required = true;
+            idField.appendChild(idLabel);
+            idField.appendChild(studentIdInput);
+            
+            // Code field
+            const codeField = createElement('div', 'space-y-1');
+            const codeLabel = createElement('label', 'text-sm font-semibold text-slate-700 flex items-center gap-2');
+            codeLabel.appendChild(createIcon(icons.lock, 'w-4 h-4'));
+            codeLabel.appendChild(document.createTextNode('Unique Voting Code'));
+            const codeInput = createInput('text', 'Enter 8-character code', 'w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all');
+            codeInput.required = true;
+            codeField.appendChild(codeLabel);
+            codeField.appendChild(codeInput);
+            
+            const submitBtn = createButton('Join Live Session', 'w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 mt-4', (e) => {
                 e.preventDefault();
-                setError('');
-                const result = onLogin(studentId, code, isAdminTab);
-                if (!result.success) setError(result.message);
-            };
-
-            return React.createElement('div', { className: "max-w-md mx-auto w-full mt-10" },
-                React.createElement('div', { className: "bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden" },
-                    
-                    // Tabs
-                    React.createElement('div', { className: "flex border-b border-slate-200 bg-slate-50" },
-                        React.createElement('button', { 
-                            className: `flex-1 py-4 text-sm font-bold transition-colors ${!isAdminTab ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 hover:bg-slate-100'}`,
-                            onClick: () => { setIsAdminTab(false); setError(''); }
-                        }, "Voter Login"),
-                        React.createElement('button', { 
-                            className: `flex-1 py-4 text-sm font-bold transition-colors ${isAdminTab ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 hover:bg-slate-100'}`,
-                            onClick: () => { setIsAdminTab(true); setError(''); }
-                        }, "Admin Login")
-                    ),
-
-                    React.createElement('div', { className: "p-8" },
-                        React.createElement('div', { className: "text-center mb-6" },
-                            React.createElement('h2', { className: "text-2xl font-bold text-slate-800" },
-                                isAdminTab ? 'Returning Officer Portal' : 'Committee Elections'
-                            ),
-                            React.createElement('p', { className: "text-slate-500 text-sm mt-1" },
-                                isAdminTab ? 'Manage the live election flow' : 'Sign in to access the live voting session'
-                            )
-                        ),
-                        
-                        React.createElement('form', { onSubmit: submit, className: "space-y-5" },
-                            error && React.createElement('div', { className: "bg-red-50 text-red-700 p-3 rounded-lg text-sm flex items-start gap-2 border border-red-100" },
-                                React.createElement(AlertCircle, { className: "w-5 h-5 shrink-0" }),
-                                React.createElement('p', null, error)
-                            ),
-                            
-                            React.createElement('div', { className: "space-y-1" },
-                                React.createElement('label', { className: "text-sm font-semibold text-slate-700 flex items-center gap-2" },
-                                    React.createElement(User, { className: "w-4 h-4" }),
-                                    isAdminTab ? 'Admin Username' : 'Student ID'
-                                ),
-                                React.createElement('input', { 
-                                    type: "text", 
-                                    required: true, 
-                                    value: studentId, 
-                                    onChange: e => setStudentId(e.target.value),
-                                    className: "w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all",
-                                    placeholder: isAdminTab ? "admin" : "e.g. 1234567"
-                                })
-                            ),
-
-                            React.createElement('div', { className: "space-y-1" },
-                                React.createElement('label', { className: "text-sm font-semibold text-slate-700 flex items-center gap-2" },
-                                    React.createElement(Lock, { className: "w-4 h-4" }),
-                                    isAdminTab ? 'Admin Password' : 'Unique Voting Code'
-                                ),
-                                React.createElement('input', { 
-                                    type: isAdminTab ? "password" : "text", 
-                                    required: true, 
-                                    value: code, 
-                                    onChange: e => setCode(e.target.value),
-                                    className: `w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${!isAdminTab && 'font-mono uppercase'}`,
-                                    placeholder: isAdminTab ? "••••••••" : "Enter 8-character code"
-                                })
-                            ),
-
-                            React.createElement('button', { 
-                                type: "submit", 
-                                className: "w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 mt-4" 
-                            },
-                                isAdminTab ? 'Access Dashboard' : 'Join Live Session',
-                                React.createElement(ChevronRight, { className: "w-5 h-5" })
-                            )
-                        )
-                    )
-                ),
-
-                // Demo Credentials Helper
-                React.createElement('div', { className: "mt-6 bg-slate-200/50 p-4 rounded-xl text-xs text-slate-600 border border-slate-200" },
-                    React.createElement('p', { className: "font-bold mb-2 uppercase tracking-wider text-[10px] text-slate-400" }, "Demo Credentials"),
-                    React.createElement('div', { className: "grid grid-cols-2 gap-2" },
-                        React.createElement('div', null,
-                            React.createElement('strong', { className: "text-slate-800" }, "Voter 1:"), 
-                            React.createElement('br'),
-                            "ID: ", React.createElement('code', { className: "bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200" }, "1234567"),
-                            React.createElement('br'),
-                            "Code: ", React.createElement('code', { className: "bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200" }, "UOB2024A")
-                        ),
-                        React.createElement('div', null,
-                            React.createElement('strong', { className: "text-slate-800" }, "Admin:"), 
-                            React.createElement('br'),
-                            "User: ", React.createElement('code', { className: "bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200" }, "admin"),
-                            React.createElement('br'),
-                            "Pass: ", React.createElement('code', { className: "bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200" }, "admin")
-                        )
-                    )
-                )
-            );
+                const result = handleLogin(studentIdInput.value, codeInput.value, isAdminTab);
+                if (!result.success) {
+                    errorEl.textContent = result.message;
+                    errorEl.className = 'bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-100';
+                }
+            });
+            submitBtn.type = 'submit';
+            
+            form.appendChild(errorEl);
+            form.appendChild(idField);
+            form.appendChild(codeField);
+            form.appendChild(submitBtn);
+            
+            formContainer.appendChild(header);
+            formContainer.appendChild(form);
+            
+            card.appendChild(tabs);
+            card.appendChild(formContainer);
+            
+            // Demo credentials
+            const demo = createElement('div', 'mt-6 bg-slate-200/50 p-4 rounded-xl text-xs text-slate-600 border border-slate-200');
+            demo.innerHTML = `
+                <p class="font-bold mb-2 uppercase tracking-wider text-[10px] text-slate-400">Demo Credentials</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><strong class="text-slate-800">Voter 1:</strong><br/>ID: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">1234567</code><br/>Code: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">UOB2024A</code></div>
+                    <div><strong class="text-slate-800">Admin:</strong><br/>User: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">admin</code><br/>Pass: <code class="bg-white px-1 py-0.5 rounded shadow-sm border border-slate-200">admin</code></div>
+                </div>
+            `;
+            
+            container.appendChild(card);
+            container.appendChild(demo);
+            
+            return container;
         }
 
-        // Simplified VoterDashboard for demo
-        function VoterDashboard({ voterData, election, candidatesMapping, results, onCastVote }) {
-            const { activePosition, status, revealedPositions } = election;
+        function renderVoterDashboard() {
+            const { activePosition, status, revealedPositions } = appState.election;
+            const voterData = appState.votersDB[appState.currentUser.id];
             const hasVotedForActive = activePosition ? voterData.votedPositions.includes(activePosition) : false;
-
-            const [selection, setSelection] = useState('');
-            const [isConfirming, setIsConfirming] = useState(false);
-
-            const handleSubmit = () => {
-                if (selection) {
-                    onCastVote(activePosition, selection);
-                    setIsConfirming(false);
-                }
-            };
-
-            return React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 h-full" },
+            
+            const container = createElement('div', 'grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 h-full');
+            
+            // Left column - voting area
+            const leftCol = createElement('div', 'lg:col-span-2 flex flex-col gap-6');
+            const votingCard = createElement('div', 'bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col');
+            
+            // Status header
+            const statusHeader = createElement('div', 'flex items-center gap-2 mb-6 pb-4 border-b border-slate-100');
+            const statusIndicator = createElement('span', 'relative flex h-3 w-3');
+            const pingDot = createElement('span', `animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${status === 'open' ? 'bg-green-400' : 'bg-amber-400'}`);
+            const staticDot = createElement('span', `relative inline-flex rounded-full h-3 w-3 ${status === 'open' ? 'bg-green-500' : 'bg-amber-500'}`);
+            statusIndicator.appendChild(pingDot);
+            statusIndicator.appendChild(staticDot);
+            statusHeader.appendChild(statusIndicator);
+            statusHeader.appendChild(createElement('h2', 'text-lg font-bold text-slate-800 uppercase tracking-wide', 'Live Ballot Status'));
+            
+            votingCard.appendChild(statusHeader);
+            
+            // Content based on state
+            if (status === 'idle' || !activePosition) {
+                const waitingContent = createElement('div', 'flex-1 flex flex-col items-center justify-center text-center py-12');
+                waitingContent.appendChild(createIcon(icons.clock, 'w-16 h-16 text-slate-300 mb-4'));
+                waitingContent.appendChild(createElement('h3', 'text-2xl font-bold text-slate-800 mb-2', 'Waiting for next ballot...'));
+                waitingContent.appendChild(createElement('p', 'text-slate-500 max-w-md', 'The Returning Officer has not opened the next round of voting yet. Please keep this screen open.'));
+                votingCard.appendChild(waitingContent);
+            } else if (status === 'open' && !hasVotedForActive) {
+                // Voting interface
+                const votingContent = createElement('div', 'flex-1');
+                votingContent.appendChild(createElement('h3', 'text-3xl font-bold text-slate-900 mb-2', activePosition));
+                votingContent.appendChild(createElement('p', 'text-slate-500 mb-6 pb-6 border-b border-slate-100', 'Select one candidate. Your vote is anonymous and final once submitted.'));
                 
-                // Left Column: Live Action Area
-                React.createElement('div', { className: "lg:col-span-2 flex flex-col gap-6" },
-                    React.createElement('div', { className: "bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col" },
-                        React.createElement('div', { className: "flex items-center gap-2 mb-6 pb-4 border-b border-slate-100" },
-                            React.createElement('span', { className: "relative flex h-3 w-3" },
-                                React.createElement('span', { className: `animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${status === 'open' ? 'bg-green-400' : 'bg-amber-400'}` }),
-                                React.createElement('span', { className: `relative inline-flex rounded-full h-3 w-3 ${status === 'open' ? 'bg-green-500' : 'bg-amber-500'}` })
-                            ),
-                            React.createElement('h2', { className: "text-lg font-bold text-slate-800 uppercase tracking-wide" }, "Live Ballot Status")
-                        ),
-
-                        // Waiting state
-                        (status === 'idle' || !activePosition) && React.createElement('div', { className: "flex-1 flex flex-col items-center justify-center text-center py-12" },
-                            React.createElement(Clock, { className: "w-16 h-16 text-slate-300 mb-4" }),
-                            React.createElement('h3', { className: "text-2xl font-bold text-slate-800 mb-2" }, "Waiting for next ballot..."),
-                            React.createElement('p', { className: "text-slate-500 max-w-md" }, "The Returning Officer has not opened the next round of voting yet. Please keep this screen open.")
-                        ),
-
-                        // Voting open and not voted
-                        status === 'open' && activePosition && !hasVotedForActive && React.createElement('div', { className: "flex-1" },
-                            React.createElement('h3', { className: "text-3xl font-bold text-slate-900 mb-2" }, activePosition),
-                            React.createElement('p', { className: "text-slate-500 mb-6 pb-6 border-b border-slate-100" }, "Select one candidate. Your vote is anonymous and final once submitted."),
-                            
-                            !isConfirming ? React.createElement('div', { className: "space-y-3" },
-                                candidatesMapping[activePosition]?.map(candidate => 
-                                    React.createElement('label', { 
-                                        key: candidate.fullName, 
-                                        className: `flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${selection === candidate.fullName ? 'border-blue-500 bg-blue-50 shadow-md shadow-blue-500/10' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}` 
-                                    },
-                                        React.createElement('input', { 
-                                            type: "radio", 
-                                            name: "ballot", 
-                                            value: candidate.fullName, 
-                                            checked: selection === candidate.fullName, 
-                                            onChange: () => setSelection(candidate.fullName), 
-                                            className: "w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500" 
-                                        }),
-                                        React.createElement('div', { className: "ml-4 flex flex-col" },
-                                            React.createElement('span', { className: "font-bold text-slate-800 text-lg" }, candidate.fullName),
-                                            React.createElement('span', { className: "text-sm text-slate-500" }, `Attending: ${candidate.attending}`)
-                                        )
-                                    )
-                                ),
-                                React.createElement('div', { className: "grid grid-cols-2 gap-3 mt-6" },
-                                    ['Re-Open Nominations (RON)', 'Abstain'].map(opt => 
-                                        React.createElement('label', { 
-                                            key: opt, 
-                                            className: `flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${selection === opt ? 'border-slate-800 bg-slate-100 shadow-md' : 'border-slate-200 hover:bg-slate-50'}` 
-                                        },
-                                            React.createElement('input', { 
-                                                type: "radio", 
-                                                name: "ballot", 
-                                                value: opt, 
-                                                checked: selection === opt, 
-                                                onChange: () => setSelection(opt), 
-                                                className: "w-5 h-5 text-slate-600 focus:ring-slate-500" 
-                                            }),
-                                            React.createElement('span', { className: "ml-3 font-semibold text-slate-700" }, opt)
-                                        )
-                                    )
-                                ),
-                                React.createElement('button', { 
-                                    onClick: () => setIsConfirming(true), 
-                                    disabled: !selection, 
-                                    className: `w-full mt-8 py-4 rounded-xl font-bold text-lg transition-all ${selection ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}` 
-                                }, "Review Vote")
-                            ) : React.createElement('div', { className: "bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center" },
-                                React.createElement('p', { className: "text-sm font-semibold text-slate-500 uppercase tracking-widest mb-2" }, "Confirm Your Choice for"),
-                                React.createElement('p', { className: "text-xl font-bold text-slate-800 mb-6" }, activePosition),
-                                React.createElement('div', { className: "inline-block bg-white border-2 border-blue-200 px-8 py-4 rounded-xl shadow-sm mb-8" },
-                                    React.createElement('span', { className: "text-2xl font-bold text-blue-700" }, selection)
-                                ),
-                                React.createElement('div', { className: "flex gap-4" },
-                                    React.createElement('button', { 
-                                        onClick: () => setIsConfirming(false), 
-                                        className: "flex-1 py-3 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl font-bold text-slate-700 transition-colors" 
-                                    }, "Go Back"),
-                                    React.createElement('button', { 
-                                        onClick: handleSubmit, 
-                                        className: "flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-600/30 transition-all flex items-center justify-center gap-2" 
-                                    },
-                                        React.createElement(CheckCircle, { className: "w-5 h-5" }),
-                                        "Cast Vote"
-                                    )
-                                )
-                            )
-                        ),
-
-                        // Voted state
-                        status === 'open' && activePosition && hasVotedForActive && React.createElement('div', { className: "flex-1 flex flex-col items-center justify-center text-center py-12" },
-                            React.createElement('div', { className: "w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6" },
-                                React.createElement(CheckCircle, { className: "w-10 h-10 text-green-600" })
-                            ),
-                            React.createElement('h3', { className: "text-2xl font-bold text-slate-900 mb-2" }, "Vote Recorded"),
-                            React.createElement('p', { className: "text-slate-500 max-w-md" }, 
-                                "Your vote for ", React.createElement('strong', null, activePosition), " has been securely cast. Please wait for the admin to close the ballot."
-                            )
-                        ),
-
-                        // Closed state
-                        status === 'closed' && activePosition && React.createElement('div', { className: "flex-1 flex flex-col items-center justify-center text-center py-12" },
-                            React.createElement(Lock, { className: "w-16 h-16 text-slate-400 mb-4" }),
-                            React.createElement('h3', { className: "text-2xl font-bold text-slate-800 mb-2" }, "Voting Closed"),
-                            React.createElement('p', { className: "text-slate-500 max-w-md" }, 
-                                "Voting for ", React.createElement('strong', null, activePosition), " has concluded. Awaiting the Returning Officer to reveal the results."
-                            )
-                        )
-                    )
-                ),
-
-                // Right Column: Results
-                React.createElement('div', { className: "bg-slate-900 text-white rounded-2xl shadow-xl flex flex-col overflow-hidden" },
-                    React.createElement('div', { className: "p-6 border-b border-slate-800 bg-slate-800/50 flex items-center gap-3" },
-                        React.createElement(Trophy, { className: "w-6 h-6 text-yellow-400" }),
-                        React.createElement('h2', { className: "text-xl font-bold" }, "Announced Results")
-                    ),
-                    
-                    React.createElement('div', { className: "p-6 flex-1 overflow-y-auto bg-slate-900" },
-                        revealedPositions.length === 0 ? 
-                            React.createElement('div', { className: "text-center text-slate-500 py-10 italic" }, "No results have been announced yet.") :
-                            React.createElement('div', { className: "space-y-6" },
-                                [...revealedPositions].reverse().map(pos => {
-                                    const posResults = results[pos] || {};
-                                    const sorted = Object.entries(posResults).sort((a, b) => b[1] - a[1]);
-                                    const winner = sorted.length > 0 ? sorted[0][0] : "No votes";
-                                    
-                                    return React.createElement('div', { 
-                                        key: pos, 
-                                        className: "bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-inner" 
-                                    },
-                                        React.createElement('h4', { className: "text-xs font-bold text-slate-400 uppercase tracking-wider mb-2" }, pos),
-                                        React.createElement('p', { className: "text-lg font-bold text-white flex items-center justify-between" },
-                                            winner,
-                                            winner !== "No votes" && winner !== "Re-Open Nominations (RON)" && React.createElement(CheckCircle, { className: "w-5 h-5 text-green-400" })
-                                        )
-                                    );
-                                })
-                            )
-                    )
-                )
-            );
-        }
-
-        // Simplified AdminDashboard for demo
-        function AdminDashboard({ election, setElection, candidates, setCandidates, votersDB, results, positions }) {
-            const totalEligible = Object.keys(votersDB).length;
-            const currentVotesCount = election.activePosition ? 
-                Object.values(votersDB).filter(v => v.votedPositions.includes(election.activePosition)).length : 0;
-
-            const handleOpenVoting = (pos) => setElection({ ...election, activePosition: pos, status: 'open' });
-            const handleCloseVoting = () => setElection({ ...election, status: 'closed' });
-            const handleRevealResults = () => {
-                if (!election.revealedPositions.includes(election.activePosition)) {
-                    setElection({
-                        ...election,
-                        status: 'idle',
-                        revealedPositions: [...election.revealedPositions, election.activePosition]
+                const candidatesForPosition = appState.candidates.filter(c => c.roles.includes(activePosition));
+                let selectedCandidate = null;
+                
+                const candidatesList = createElement('div', 'space-y-3');
+                
+                candidatesForPosition.forEach(candidate => {
+                    const label = createElement('label', 'flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all border-slate-200 hover:border-blue-300 hover:bg-slate-50');
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = 'ballot';
+                    radio.value = candidate.fullName;
+                    radio.className = 'w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500';
+                    radio.addEventListener('change', () => {
+                        selectedCandidate = candidate.fullName;
+                        updateSelection();
                     });
-                }
-            };
-
-            return React.createElement('div', { className: "flex flex-col flex-1 h-full gap-6" },
+                    
+                    const info = createElement('div', 'ml-4 flex flex-col');
+                    info.appendChild(createElement('span', 'font-bold text-slate-800 text-lg', candidate.fullName));
+                    info.appendChild(createElement('span', 'text-sm text-slate-500', `Attending: ${candidate.attending}`));
+                    
+                    label.appendChild(radio);
+                    label.appendChild(info);
+                    candidatesList.appendChild(label);
+                });
                 
-                // Admin Header
-                React.createElement('div', { className: "bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row justify-between items-center gap-4" },
-                    React.createElement('h2', { className: "text-xl font-bold text-slate-800 flex items-center gap-2" },
-                        React.createElement(Shield, { className: "w-6 h-6 text-indigo-600" }),
-                        "Returning Officer Panel"
-                    )
-                ),
-
-                React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-3 gap-6" },
-                    // Main Controls
-                    React.createElement('div', { className: "lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8" },
-                        React.createElement('h3', { className: "text-lg font-bold text-slate-800 mb-6 border-b border-slate-100 pb-4" }, "Election Controller"),
-                        
-                        React.createElement('div', { className: "space-y-8" },
-                            // Step 1: Select Position
-                            React.createElement('div', { className: election.status !== 'idle' ? 'opacity-50 pointer-events-none' : '' },
-                                React.createElement('label', { className: "block text-sm font-bold text-slate-700 mb-2" }, "1. Select Position to Elect"),
-                                React.createElement('select', { 
-                                    className: "w-full p-4 border border-slate-300 rounded-xl font-bold text-slate-800 bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none",
-                                    value: election.activePosition || '',
-                                    onChange: (e) => setElection({ ...election, activePosition: e.target.value })
-                                },
-                                    React.createElement('option', { value: "", disabled: true }, "-- Select a role --"),
-                                    positions.map(pos => {
-                                        const isRevealed = election.revealedPositions.includes(pos);
-                                        return React.createElement('option', { 
-                                            key: pos, 
-                                            value: pos, 
-                                            disabled: isRevealed 
-                                        }, `${pos} ${isRevealed ? '(Completed)' : ''}`);
-                                    })
-                                )
-                            ),
-
-                            // Action buttons
-                            React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-4" },
-                                React.createElement('button', { 
-                                    onClick: () => handleOpenVoting(election.activePosition),
-                                    disabled: !election.activePosition || election.status !== 'idle',
-                                    className: `flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${election.status === 'idle' && election.activePosition ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`
-                                },
-                                    React.createElement(Play, { className: "w-8 h-8 mb-2" }),
-                                    React.createElement('span', { className: "font-bold" }, "Open Ballot")
-                                ),
-
-                                React.createElement('button', { 
-                                    onClick: handleCloseVoting,
-                                    disabled: election.status !== 'open',
-                                    className: `flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${election.status === 'open' ? 'border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`
-                                },
-                                    React.createElement(Square, { className: "w-8 h-8 mb-2" }),
-                                    React.createElement('span', { className: "font-bold" }, "Close Ballot")
-                                ),
-
-                                React.createElement('button', { 
-                                    onClick: handleRevealResults,
-                                    disabled: election.status !== 'closed',
-                                    className: `flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${election.status === 'closed' ? 'border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`
-                                },
-                                    React.createElement(Eye, { className: "w-8 h-8 mb-2" }),
-                                    React.createElement('span', { className: "font-bold" }, "Reveal & Reset")
-                                )
-                            )
-                        )
-                    ),
-
-                    // Side Panel: Live Stats
-                    React.createElement('div', { className: "bg-slate-900 rounded-2xl shadow-sm text-white p-6 flex flex-col" },
-                        React.createElement('h3', { className: "text-lg font-bold mb-6 flex items-center gap-2 text-indigo-300" },
-                            React.createElement(BarChart3, { className: "w-5 h-5" }),
-                            "Live Monitor"
-                        ),
-                        
-                        React.createElement('div', { className: "bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700" },
-                            React.createElement('p', { className: "text-sm text-slate-400 mb-1" }, "Current Ballot"),
-                            React.createElement('p', { className: "text-xl font-bold text-white" }, election.activePosition || 'None Active'),
-                            React.createElement('div', { className: "mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-900 border border-slate-600" },
-                                React.createElement('div', { className: `w-2 h-2 rounded-full ${election.status === 'open' ? 'bg-green-500' : election.status === 'closed' ? 'bg-amber-500' : 'bg-slate-500'}` }),
-                                election.status
-                            )
-                        ),
-
-                        election.status === 'open' && React.createElement('div', { className: "bg-slate-800 rounded-xl p-4 border border-slate-700 mb-4" },
-                            React.createElement('p', { className: "text-sm text-slate-400 mb-2" }, "Turnout (This Ballot)"),
-                            React.createElement('div', { className: "flex items-end gap-2 mb-2" },
-                                React.createElement('span', { className: "text-4xl font-bold text-white" }, currentVotesCount),
-                                React.createElement('span', { className: "text-slate-400 mb-1" }, `/ ${totalEligible} voters`)
-                            ),
-                            React.createElement('div', { className: "w-full bg-slate-900 rounded-full h-2.5" },
-                                React.createElement('div', { 
-                                    className: "bg-indigo-500 h-2.5 rounded-full transition-all duration-500", 
-                                    style: { width: `${(currentVotesCount / totalEligible) * 100}%` }
-                                })
-                            )
-                        ),
-
-                        election.status === 'closed' && election.activePosition && React.createElement('div', { className: "bg-slate-800 rounded-xl p-4 border border-slate-700 flex-1" },
-                            React.createElement('p', { className: "text-sm text-slate-400 mb-4 border-b border-slate-700 pb-2" }, "Preliminary Results (Hidden from Voters)"),
-                            React.createElement('ul', { className: "space-y-3" },
-                                Object.entries(results[election.activePosition] || {})
-                                    .sort((a,b) => b[1] - a[1])
-                                    .map(([name, count]) => 
-                                        React.createElement('li', { 
-                                            key: name, 
-                                            className: "flex justify-between items-center bg-slate-900 p-2 rounded-lg" 
-                                        },
-                                            React.createElement('span', { className: "text-sm truncate pr-2", title: name }, name),
-                                            React.createElement('span', { className: "font-mono font-bold text-indigo-300" }, count)
-                                        )
-                                    )
-                            )
-                        )
-                    )
-                )
-            );
+                // RON and Abstain options
+                const otherOptions = createElement('div', 'grid grid-cols-2 gap-3 mt-6');
+                ['Re-Open Nominations (RON)', 'Abstain'].forEach(opt => {
+                    const label = createElement('label', 'flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all border-slate-200 hover:bg-slate-50');
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = 'ballot';
+                    radio.value = opt;
+                    radio.className = 'w-5 h-5 text-slate-600 focus:ring-slate-500';
+                    radio.addEventListener('change', () => {
+                        selectedCandidate = opt;
+                        updateSelection();
+                    });
+                    
+                    label.appendChild(radio);
+                    label.appendChild(createElement('span', 'ml-3 font-semibold text-slate-700', opt));
+                    otherOptions.appendChild(label);
+                });
+                
+                const voteBtn = createButton('Cast Vote', 'w-full mt-8 py-4 rounded-xl font-bold text-lg transition-all bg-slate-200 text-slate-400 cursor-not-allowed', () => {
+                    if (selectedCandidate) {
+                        handleCastVote(activePosition, selectedCandidate);
+                    }
+                });
+                voteBtn.disabled = true;
+                
+                function updateSelection() {
+                    if (selectedCandidate) {
+                        voteBtn.className = 'w-full mt-8 py-4 rounded-xl font-bold text-lg transition-all bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30';
+                        voteBtn.disabled = false;
+                    }
+                }
+                
+                votingContent.appendChild(candidatesList);
+                votingContent.appendChild(otherOptions);
+                votingContent.appendChild(voteBtn);
+                votingCard.appendChild(votingContent);
+            } else if (status === 'open' && hasVotedForActive) {
+                // Vote recorded state
+                const recordedContent = createElement('div', 'flex-1 flex flex-col items-center justify-center text-center py-12');
+                const checkIcon = createElement('div', 'w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6');
+                checkIcon.appendChild(createIcon(icons.checkCircle, 'w-10 h-10 text-green-600'));
+                recordedContent.appendChild(checkIcon);
+                recordedContent.appendChild(createElement('h3', 'text-2xl font-bold text-slate-900 mb-2', 'Vote Recorded'));
+                const message = createElement('p', 'text-slate-500 max-w-md');
+                message.innerHTML = `Your vote for <strong>${activePosition}</strong> has been securely cast. Please wait for the admin to close the ballot.`;
+                recordedContent.appendChild(message);
+                votingCard.appendChild(recordedContent);
+            } else if (status === 'closed') {
+                // Voting closed state
+                const closedContent = createElement('div', 'flex-1 flex flex-col items-center justify-center text-center py-12');
+                closedContent.appendChild(createIcon(icons.lock, 'w-16 h-16 text-slate-400 mb-4'));
+                closedContent.appendChild(createElement('h3', 'text-2xl font-bold text-slate-800 mb-2', 'Voting Closed'));
+                const message = createElement('p', 'text-slate-500 max-w-md');
+                message.innerHTML = `Voting for <strong>${activePosition}</strong> has concluded. Awaiting the Returning Officer to reveal the results.`;
+                closedContent.appendChild(message);
+                votingCard.appendChild(closedContent);
+            }
+            
+            leftCol.appendChild(votingCard);
+            
+            // Right column - results
+            const rightCol = createElement('div', 'bg-slate-900 text-white rounded-2xl shadow-xl flex flex-col overflow-hidden');
+            const resultsHeader = createElement('div', 'p-6 border-b border-slate-800 bg-slate-800/50 flex items-center gap-3');
+            resultsHeader.appendChild(createIcon(icons.trophy, 'w-6 h-6 text-yellow-400'));
+            resultsHeader.appendChild(createElement('h2', 'text-xl font-bold', 'Announced Results'));
+            
+            const resultsContent = createElement('div', 'p-6 flex-1 overflow-y-auto bg-slate-900');
+            if (revealedPositions.length === 0) {
+                resultsContent.appendChild(createElement('div', 'text-center text-slate-500 py-10 italic', 'No results have been announced yet.'));
+            } else {
+                const resultsList = createElement('div', 'space-y-6');
+                [...revealedPositions].reverse().forEach(pos => {
+                    const posResults = appState.results[pos] || {};
+                    const sorted = Object.entries(posResults).sort((a, b) => b[1] - a[1]);
+                    const winner = sorted.length > 0 ? sorted[0][0] : "No votes";
+                    
+                    const resultCard = createElement('div', 'bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-inner');
+                    resultCard.appendChild(createElement('h4', 'text-xs font-bold text-slate-400 uppercase tracking-wider mb-2', pos));
+                    const winnerEl = createElement('p', 'text-lg font-bold text-white flex items-center justify-between', winner);
+                    if (winner !== "No votes" && winner !== "Re-Open Nominations (RON)") {
+                        winnerEl.appendChild(createIcon(icons.checkCircle, 'w-5 h-5 text-green-400'));
+                    }
+                    resultCard.appendChild(winnerEl);
+                    resultsList.appendChild(resultCard);
+                });
+                resultsContent.appendChild(resultsList);
+            }
+            
+            rightCol.appendChild(resultsHeader);
+            rightCol.appendChild(resultsContent);
+            
+            container.appendChild(leftCol);
+            container.appendChild(rightCol);
+            
+            return container;
         }
 
-        // Render the app
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(App));
+        function renderAdminDashboard() {
+            const { activePosition, status, revealedPositions } = appState.election;
+            const totalEligible = Object.keys(appState.votersDB).length;
+            const currentVotesCount = activePosition ? 
+                Object.values(appState.votersDB).filter(v => v.votedPositions.includes(activePosition)).length : 0;
+            
+            const container = createElement('div', 'flex flex-col flex-1 h-full gap-6');
+            
+            // Header
+            const header = createElement('div', 'bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row justify-between items-center gap-4');
+            const title = createElement('h2', 'text-xl font-bold text-slate-800 flex items-center gap-2');
+            title.appendChild(createIcon(icons.shield, 'w-6 h-6 text-indigo-600'));
+            title.appendChild(document.createTextNode('Returning Officer Panel'));
+            header.appendChild(title);
+            
+            const mainGrid = createElement('div', 'grid grid-cols-1 lg:grid-cols-3 gap-6');
+            
+            // Main controls
+            const controlsCard = createElement('div', 'lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8');
+            controlsCard.appendChild(createElement('h3', 'text-lg font-bold text-slate-800 mb-6 border-b border-slate-100 pb-4', 'Election Controller'));
+            
+            const controlsContent = createElement('div', 'space-y-8');
+            
+            // Position selector
+            const selectorDiv = createElement('div', status !== 'idle' ? 'opacity-50 pointer-events-none' : '');
+            selectorDiv.appendChild(createElement('label', 'block text-sm font-bold text-slate-700 mb-2', '1. Select Position to Elect'));
+            
+            const select = document.createElement('select');
+            select.className = 'w-full p-4 border border-slate-300 rounded-xl font-bold text-slate-800 bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none';
+            select.value = activePosition || '';
+            
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.disabled = true;
+            defaultOption.textContent = '-- Select a role --';
+            select.appendChild(defaultOption);
+            
+            POSITIONS.forEach(pos => {
+                const option = document.createElement('option');
+                option.value = pos;
+                const isRevealed = revealedPositions.includes(pos);
+                option.disabled = isRevealed;
+                option.textContent = `${pos} ${isRevealed ? '(Completed)' : ''}`;
+                select.appendChild(option);
+            });
+            
+            select.addEventListener('change', (e) => {
+                appState.election.activePosition = e.target.value;
+                render();
+            });
+            
+            selectorDiv.appendChild(select);
+            
+            // Action buttons
+            const buttonsGrid = createElement('div', 'grid grid-cols-1 md:grid-cols-3 gap-4');
+            
+            const openBtn = createButton('Open Ballot', 
+                `flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${status === 'idle' && activePosition ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`,
+                () => {
+                    if (activePosition && status === 'idle') {
+                        handleOpenVoting(activePosition);
+                    }
+                }
+            );
+            openBtn.appendChild(createIcon(icons.play, 'w-8 h-8 mb-2'));
+            openBtn.appendChild(createElement('span', 'font-bold', 'Open Ballot'));
+            
+            const closeBtn = createButton('Close Ballot',
+                `flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${status === 'open' ? 'border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`,
+                () => {
+                    if (status === 'open') {
+                        handleCloseVoting();
+                    }
+                }
+            );
+            closeBtn.appendChild(createIcon(icons.square, 'w-8 h-8 mb-2'));
+            closeBtn.appendChild(createElement('span', 'font-bold', 'Close Ballot'));
+            
+            const revealBtn = createButton('Reveal & Reset',
+                `flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${status === 'closed' ? 'border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`,
+                () => {
+                    if (status === 'closed') {
+                        handleRevealResults();
+                    }
+                }
+            );
+            revealBtn.appendChild(createIcon(icons.eye, 'w-8 h-8 mb-2'));
+            revealBtn.appendChild(createElement('span', 'font-bold', 'Reveal & Reset'));
+            
+            buttonsGrid.appendChild(openBtn);
+            buttonsGrid.appendChild(closeBtn);
+            buttonsGrid.appendChild(revealBtn);
+            
+            controlsContent.appendChild(selectorDiv);
+            controlsContent.appendChild(buttonsGrid);
+            controlsCard.appendChild(controlsContent);
+            
+            // Stats panel
+            const statsCard = createElement('div', 'bg-slate-900 rounded-2xl shadow-sm text-white p-6 flex flex-col');
+            const statsHeader = createElement('h3', 'text-lg font-bold mb-6 flex items-center gap-2 text-indigo-300');
+            statsHeader.appendChild(createIcon(icons.barChart, 'w-5 h-5'));
+            statsHeader.appendChild(document.createTextNode('Live Monitor'));
+            statsCard.appendChild(statsHeader);
+            
+            // Current ballot info
+            const currentBallot = createElement('div', 'bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700');
+            currentBallot.appendChild(createElement('p', 'text-sm text-slate-400 mb-1', 'Current Ballot'));
+            currentBallot.appendChild(createElement('p', 'text-xl font-bold text-white', activePosition || 'None Active'));
+            
+            const statusBadge = createElement('div', 'mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-900 border border-slate-600');
+            const statusDot = createElement('div', `w-2 h-2 rounded-full ${status === 'open' ? 'bg-green-500' : status === 'closed' ? 'bg-amber-500' : 'bg-slate-500'}`);
+            statusBadge.appendChild(statusDot);
+            statusBadge.appendChild(document.createTextNode(status));
+            currentBallot.appendChild(statusBadge);
+            statsCard.appendChild(currentBallot);
+            
+            // Turnout info (if voting is open)
+            if (status === 'open') {
+                const turnout = createElement('div', 'bg-slate-800 rounded-xl p-4 border border-slate-700 mb-4');
+                turnout.appendChild(createElement('p', 'text-sm text-slate-400 mb-2', 'Turnout (This Ballot)'));
+                
+                const turnoutNumbers = createElement('div', 'flex items-end gap-2 mb-2');
+                turnoutNumbers.appendChild(createElement('span', 'text-4xl font-bold text-white', currentVotesCount.toString()));
+                turnoutNumbers.appendChild(createElement('span', 'text-slate-400 mb-1', `/ ${totalEligible} voters`));
+                turnout.appendChild(turnoutNumbers);
+                
+                const progressBar = createElement('div', 'w-full bg-slate-900 rounded-full h-2.5');
+                const progress = createElement('div', 'bg-indigo-500 h-2.5 rounded-full transition-all duration-500');
+                progress.style.width = `${(currentVotesCount / totalEligible) * 100}%`;
+                progressBar.appendChild(progress);
+                turnout.appendChild(progressBar);
+                
+                statsCard.appendChild(turnout);
+            }
+            
+            // Results preview (if closed)
+            if (status === 'closed' && activePosition) {
+                const resultsPreview = createElement('div', 'bg-slate-800 rounded-xl p-4 border border-slate-700 flex-1');
+                resultsPreview.appendChild(createElement('p', 'text-sm text-slate-400 mb-4 border-b border-slate-700 pb-2', 'Preliminary Results (Hidden from Voters)'));
+                
+                const resultsList = createElement('ul', 'space-y-3');
+                const posResults = appState.results[activePosition] || {};
+                Object.entries(posResults)
+                    .sort((a, b) => b[1] - a[1])
+                    .forEach(([name, count]) => {
+                        const item = createElement('li', 'flex justify-between items-center bg-slate-900 p-2 rounded-lg');
+                        item.appendChild(createElement('span', 'text-sm truncate pr-2', name));
+                        item.appendChild(createElement('span', 'font-mono font-bold text-indigo-300', count.toString()));
+                        resultsList.appendChild(item);
+                    });
+                
+                resultsPreview.appendChild(resultsList);
+                statsCard.appendChild(resultsPreview);
+            }
+            
+            mainGrid.appendChild(controlsCard);
+            mainGrid.appendChild(statsCard);
+            
+            container.appendChild(header);
+            container.appendChild(mainGrid);
+            
+            return container;
+        }
+
+        function render() {
+            const root = document.getElementById('root');
+            root.innerHTML = '';
+            
+            // Header
+            const header = createElement('header', 'bg-slate-900 text-white p-4 shadow-md flex justify-between items-center z-10');
+            const headerContent = createElement('div', 'flex items-center gap-3 max-w-5xl mx-auto w-full');
+            
+            headerContent.appendChild(createIcon(icons.shield, 'w-8 h-8 text-blue-400'));
+            
+            const headerText = createElement('div', 'flex-1');
+            headerText.appendChild(createElement('h1', 'text-xl font-bold tracking-tight', 'UoB Debate Society'));
+            headerText.appendChild(createElement('p', 'text-xs text-slate-400 uppercase tracking-wider font-semibold', 'Live Election System'));
+            headerContent.appendChild(headerText);
+            
+            if (appState.currentUser) {
+                const userInfo = createElement('div', 'flex items-center gap-4');
+                const userText = createElement('span', 'hidden sm:inline-block text-sm text-slate-300');
+                userText.innerHTML = `Logged in as: <span class="font-mono font-bold text-white">${appState.currentUser.id}</span>`;
+                userInfo.appendChild(userText);
+                
+                const logoutBtn = createButton('Logout', 'text-slate-300 hover:text-white flex items-center gap-1 text-sm bg-slate-800 px-3 py-1.5 rounded-lg transition-colors', handleLogout);
+                logoutBtn.appendChild(createIcon(icons.logOut, 'w-4 h-4'));
+                logoutBtn.appendChild(createElement('span', 'hidden sm:inline-block', 'Logout'));
+                userInfo.appendChild(logoutBtn);
+                
+                headerContent.appendChild(userInfo);
+            }
+            
+            header.appendChild(headerContent);
+            
+            // Main content
+            const main = createElement('main', 'flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 flex flex-col');
+            
+            if (appState.view === 'login') {
+                main.appendChild(renderLoginView());
+            } else if (appState.view === 'voter') {
+                main.appendChild(renderVoterDashboard());
+            } else if (appState.view === 'admin') {
+                main.appendChild(renderAdminDashboard());
+            }
+            
+            const container = createElement('div', 'min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-blue-200 flex flex-col');
+            container.appendChild(header);
+            container.appendChild(main);
+            
+            root.appendChild(container);
+        }
+
+        // Initialize the app
+        render();
     </script>
 </body>
 </html>
